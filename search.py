@@ -48,6 +48,7 @@ async def fetch_youtube_playlist(url: str, limit: int = 150) -> tuple:
         yt_dlp_path,
         "--flat-playlist",
         "--dump-single-json",
+        "--yes-playlist",
         "--playlist-end", str(limit),
         "--socket-timeout", "10",
         "--no-warnings",

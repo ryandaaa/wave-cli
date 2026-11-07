@@ -51,6 +51,11 @@ Screen, App, Container, Horizontal, Vertical {
     width: 100%;
 }
 
+#sidebar-brand {
+    color: #89dceb;
+    text-style: bold;
+}
+
 .sidebar-divider {
     color: #313244;
     margin-bottom: 1;
@@ -81,8 +86,16 @@ Button:focus {
     border: none;
 }
 
+#sidebar Button {
+    content-align: left middle;
+    text-align: left;
+    padding: 0;
+    margin: 0;
+}
+
 .nav-button {
     width: 100%;
+    content-align: left middle;
     text-align: left;
     color: #a6adc8;
     background: transparent;
@@ -323,6 +336,20 @@ TrackRow.row-radio .row-title {
     color: #ffffff;
 }
 
+.row-cache-indicator {
+    width: 3;
+    height: 1;
+    color: #6c7086;
+    text-align: center;
+    margin-right: 1;
+    padding: 0;
+}
+
+.row-cache-indicator.is-cached {
+    color: #a6e3a1;
+    text-style: bold;
+}
+
 .row-duration {
     color: #a6adc8;
     padding: 0 1;
@@ -350,27 +377,55 @@ TrackRow.row-radio .row-title {
     background: transparent;
     margin-top: 0;
     margin-bottom: 0;
+    overflow-x: auto;
 }
 
 .player-btn {
     height: 1;
-    min-width: 0;
+    min-width: 4;
     width: auto;
     background: transparent;
     border: none;
     color: #89b4fa;
-    padding: 0 1;
+    padding: 0;
     margin-right: 1;
+    text-wrap: nowrap;
+    overflow-x: hidden;
 }
 
 #btn-play {
-    min-width: 0;
-    width: 10;
+    min-width: 6;
+    width: auto;
 }
 
 .player-btn:hover {
     background: #89b4fa 30%;
     color: #ffffff;
+    text-style: bold;
+}
+
+#btn-player-fav.is-liked {
+    color: #f38ba8;
+    text-style: bold;
+}
+
+#btn-player-fav.is-liked:hover {
+    background: #f38ba8 30%;
+    color: #ffffff;
+}
+
+#btn-toggle-shuffle.is-active {
+    color: #a6e3a1;
+    text-style: bold;
+}
+
+#btn-toggle-repeat.is-active {
+    color: #89dceb;
+    text-style: bold;
+}
+
+#btn-toggle-repeat.is-one {
+    color: #f9e2af;
     text-style: bold;
 }
 
@@ -394,6 +449,7 @@ TrackRow.row-radio .row-title {
 
 .pl-add-button {
     color: #a6e3a1;
+    content-align: left middle;
     text-align: left;
     height: 1;
     padding: 0;
@@ -415,13 +471,21 @@ TrackRow.row-radio .row-title {
     margin-bottom: 1;
 }
 
-NewPlaylistModal, PlaylistSelectModal {
+NewPlaylistModal, PlaylistSelectModal, RenamePlaylistModal, ConfirmModal, ImportPlaylistModal {
     align: center middle;
     background: transparent;
 }
 
 #modal-dialog {
     width: 48;
+    height: auto;
+    border: heavy #89b4fa;
+    background: transparent;
+    padding: 1 2;
+}
+
+#modal-dialog-import {
+    width: 56;
     height: auto;
     border: heavy #89b4fa;
     background: transparent;
@@ -475,11 +539,16 @@ NewPlaylistModal, PlaylistSelectModal {
     margin-bottom: 1;
 }
 
-#new-pl-input, #rename-pl-input {
+#new-pl-input, #rename-pl-input, #import-pl-url, #import-pl-name {
     border: solid #89b4fa;
     background: transparent;
     color: #cdd6f4;
     margin-bottom: 1;
+}
+
+.modal-field-title {
+    color: #a6adc8;
+    margin-bottom: 0;
 }
 
 #modal-confirm-msg {

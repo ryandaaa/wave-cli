@@ -4,29 +4,42 @@ MPV Player Controller via UNIX Domain Socket JSON IPC
 
 import json
 import os
+import random
 import shutil
 import socket
 import subprocess
 import time
 from typing import Dict, List, Optional
 from search import find_yt_dlp, format_duration
+from audio_cache import get_cached_audio_path
 
 
 class Player:
-    def __init__(self, sock_path: Optional[str] = None, volume: float = 80.0, autoplay: bool = True):
+    def __init__(
+        self,
+        sock_path: Optional[str] = None,
+        volume: float = 80.0,
+        autoplay: bool = True,
+        repeat_mode: str = "OFF",
+        shuffle: bool = False
+    ):
         self.sock_path = sock_path or f"/tmp/wave-mpv-{os.getpid()}.sock"
         self.proc: Optional[subprocess.Popen] = None
         self.sock: Optional[socket.socket] = None
         self.current_track: Optional[Dict] = None
         self.queue: List[Dict] = []           # Manual User Queue (Tier 1)
         self.context_queue: List[Dict] = []   # Playlist/Liked Queue (Tier 2)
+        self.full_context_list: List[Dict] = [] # Original full list for Repeat/Shuffle
         self.radio_queue: List[Dict] = []     # Algorithmic Radio Queue (Tier 3)
         self.history_stack: List[Dict] = []
         self.session_played_ids: set = set()
         self.volume: float = float(volume)
         self.autoplay: bool = bool(autoplay)
+        self.repeat_mode: str = str(repeat_mode) if repeat_mode in ("OFF", "ALL", "ONE") else "OFF"
+        self.shuffle: bool = bool(shuffle)
         self.is_playing: bool = False
         self.is_paused: bool = False
+        self.is_offline: bool = False
         self._last_time_pos: float = 0.0
         self._last_duration: float = 0.0
 
@@ -128,8 +141,17 @@ class Player:
         self.is_paused = False
         self._last_time_pos = 0.0
         self._last_duration = track.get("duration_sec", 0.0)
-        url = track.get("url") or f"https://www.youtube.com/watch?v={track.get('id', '')}"
-        self.send_command(["loadfile", url, "replace"])
+
+        # Check audio cache for instant 0.01s local playback
+        cached_path = get_cached_audio_path(track_id) if track_id else None
+        if cached_path:
+            target = cached_path
+            self.is_offline = True
+        else:
+            target = track.get("url") or f"https://www.youtube.com/watch?v={track_id or ''}"
+            self.is_offline = False
+
+        self.send_command(["loadfile", target, "replace"])
 
     def remove_from_queue(self, idx: int) -> Optional[Dict]:
         """Remove a track at index from the queue."""
@@ -158,9 +180,17 @@ class Player:
             prev_track = self.history_stack.pop()
             self.current_track = prev_track
             self.is_playing = True
+            self.is_paused = False
             self._last_time_pos = 0.0
             self._last_duration = prev_track.get("duration_sec", 0.0)
-            self.send_command(["loadfile", prev_track["url"], "replace"])
+            cached_path = get_cached_audio_path(prev_track.get("id")) if prev_track.get("id") else None
+            if cached_path:
+                target = cached_path
+                self.is_offline = True
+            else:
+                target = prev_track.get("url") or f"https://www.youtube.com/watch?v={prev_track.get('id', '')}"
+                self.is_offline = False
+            self.send_command(["loadfile", target, "replace"])
             return prev_track
         else:
             self.seek(0)
@@ -180,18 +210,31 @@ class Player:
         else:
             self.queue.insert(0, track)
 
-    def play_next(self) -> Optional[Dict]:
+    def play_next(self, is_eof: bool = False) -> Optional[Dict]:
         """
-        Play the next track according to tier priority:
+        Play the next track according to tier priority and repeat/shuffle settings:
+        0. Repeat One (only triggers on natural track end / is_eof)
         1. Manual queue (user explicit queue)
         2. Context queue (playlist sequence if active)
+        2b. Repeat ALL (refills context queue if empty)
         3. Radio queue (algorithmic recommendations if autoplay enabled)
         """
+        if is_eof and self.repeat_mode == "ONE" and self.current_track:
+            self.play(self.current_track)
+            return self.current_track
+
         next_track = None
         if self.queue:
             next_track = self.queue.pop(0)
         elif self.context_queue:
             next_track = self.context_queue.pop(0)
+        elif self.repeat_mode == "ALL" and self.full_context_list:
+            refilled = list(self.full_context_list)
+            if self.shuffle:
+                random.shuffle(refilled)
+            self.context_queue = refilled
+            if self.context_queue:
+                next_track = self.context_queue.pop(0)
         elif self.autoplay and self.radio_queue:
             while self.radio_queue:
                 cand = self.radio_queue.pop(0)
@@ -205,6 +248,34 @@ class Player:
         else:
             self.stop()
             return None
+
+    def toggle_repeat(self) -> str:
+        """Cycle repeat mode: OFF -> ALL -> ONE -> OFF."""
+        if self.repeat_mode == "OFF":
+            self.repeat_mode = "ALL"
+        elif self.repeat_mode == "ALL":
+            self.repeat_mode = "ONE"
+        else:
+            self.repeat_mode = "OFF"
+        return self.repeat_mode
+
+    def toggle_shuffle(self) -> bool:
+        """Toggle shuffle mode. Randomizes upcoming context queue if enabled."""
+        self.shuffle = not self.shuffle
+        if self.shuffle and self.context_queue:
+            random.shuffle(self.context_queue)
+        elif not self.shuffle and self.full_context_list and self.current_track:
+            cur_id = self.current_track.get("id")
+            found = False
+            rest = []
+            for t in self.full_context_list:
+                if found:
+                    rest.append(t)
+                elif t.get("id") == cur_id:
+                    found = True
+            if rest:
+                self.context_queue = rest
+        return self.shuffle
 
     def toggle_autoplay(self) -> bool:
         """Toggle autoplay/radio state."""
@@ -264,7 +335,10 @@ class Player:
                 "volume": self.volume,
                 "title": "",
                 "artist": "",
-                "eof": False
+                "eof": False,
+                "is_offline": False,
+                "repeat_mode": self.repeat_mode,
+                "shuffle": self.shuffle
             }
 
         pos_res = self.send_command(["get_property", "time-pos"])
@@ -304,7 +378,10 @@ class Player:
             "volume": self.volume,
             "title": self.current_track.get("title", ""),
             "artist": self.current_track.get("artist", ""),
-            "eof": eof
+            "eof": eof,
+            "is_offline": self.is_offline,
+            "repeat_mode": self.repeat_mode,
+            "shuffle": self.shuffle
         }
 
     def close(self):

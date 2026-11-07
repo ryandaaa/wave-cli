@@ -4,6 +4,7 @@ Clean ASCII, 100% Zero-Flicker Architecture
 """
 
 import asyncio
+import random
 from typing import Dict, List, Optional
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -14,9 +15,11 @@ from textual.widgets import Button, Input, Label, Static
 from textual.content import Content
 from textual import on, work
 
+from pathlib import Path
 from database import Database
 from player import Player
 from search import search_youtube, format_duration, is_playlist_url, fetch_youtube_playlist, fetch_radio_mix
+from audio_cache import is_track_cached, download_track_audio
 
 from textual.renderables import blank
 from textual.color import Color
@@ -123,6 +126,12 @@ class TrackRow(Horizontal):
         fav_lbl = Content("[ Liked ]") if self.is_liked else Content("[ Fav ]")
         fav_cls = "row-action-btn row-fav-btn" + (" is-liked" if self.is_liked else "")
         yield Button(fav_lbl, id=f"btn-row-fav-{self.idx}", classes=fav_cls)
+
+        is_cached = is_track_cached(self.track.get("id", ""))
+        cache_lbl = "[v]" if is_cached else "   "
+        cache_cls = "row-cache-indicator" + (" is-cached" if is_cached else "")
+        yield Label(cache_lbl, id=f"lbl-row-cache-{self.idx}", classes=cache_cls, markup=False)
+
         dur = self.track.get("duration", "--:--")
         yield Label(dur, classes="row-duration", markup=False)
 
@@ -289,8 +298,63 @@ class ConfirmModal(ModalScreen[bool]):
         self.dismiss(False)
 
 
+class ImportPlaylistModal(ModalScreen[Optional[Dict[str, str]]]):
+    BINDINGS = [Binding("escape", "cancel", "Cancel", show=False)]
+
+    def __init__(self, initial_url: str = "", default_name: str = ""):
+        super().__init__()
+        self.initial_url = initial_url
+        self.default_name = default_name
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal-dialog-import"):
+            with Horizontal(classes="modal-header"):
+                yield Label("[IMPORT PLAYLIST YOUTUBE]", id="modal-title", markup=False)
+                yield Button(Content("[ x ]"), id="btn-modal-close", classes="modal-close-btn")
+            yield Label("Link Playlist YouTube (URL):", classes="modal-field-title", markup=False)
+            yield Input(value=self.initial_url, placeholder="Paste link playlist YouTube di sini...", id="import-pl-url")
+            yield Label("Nama Playlist (opsional, kosongkan untuk nama asli):", classes="modal-field-title", markup=False)
+            yield Input(value=self.default_name, placeholder="Ketik nama playlist di sini...", id="import-pl-name")
+            with Horizontal(id="modal-btn-row"):
+                yield Button(Content("[ Simpan & Import ]"), id="btn-import-save", classes="modal-btn")
+                yield Button(Content("[ Batal ]"), id="btn-import-cancel", classes="modal-btn")
+
+    def on_mount(self):
+        if self.initial_url:
+            self.query_one("#import-pl-name", Input).focus()
+        else:
+            self.query_one("#import-pl-url", Input).focus()
+
+    @on(Button.Pressed, "#btn-modal-close")
+    def on_close(self):
+        self.dismiss(None)
+
+    @on(Button.Pressed, "#btn-import-save")
+    def on_save(self):
+        url = self.query_one("#import-pl-url", Input).value.strip()
+        name = self.query_one("#import-pl-name", Input).value.strip()
+        if not url:
+            self.dismiss(None)
+        else:
+            self.dismiss({"url": url, "name": name})
+
+    @on(Button.Pressed, "#btn-import-cancel")
+    def on_cancel(self):
+        self.dismiss(None)
+
+    @on(Input.Submitted)
+    def on_submit(self, event: Input.Submitted):
+        if event.input.id == "import-pl-url":
+            self.query_one("#import-pl-name", Input).focus()
+        else:
+            self.on_save()
+
+    def action_cancel(self):
+        self.dismiss(None)
+
+
 class WaveApp(App):
-    CSS_PATH = "wave.tcss"
+    CSS_PATH = Path(__file__).parent / "wave.tcss"
     TITLE = "WAVE-CLI"
 
     BINDINGS = [
@@ -309,9 +373,13 @@ class WaveApp(App):
         Binding("a", "add_queue", "Queue", show=False),
         Binding("e", "play_next_item", "Play Next", show=False),
         Binding("R", "toggle_autoplay", "Toggle Radio", show=False),
+        Binding("s", "toggle_shuffle", "Toggle Shuffle", show=False),
+        Binding("t", "toggle_repeat", "Toggle Repeat", show=False),
         Binding("f", "toggle_like", "Like", show=False),
+        Binding("F", "toggle_like_now_playing", "Like Now Playing", show=False),
         Binding("m", "open_playlist_menu", "Add to Playlist", show=False),
         Binding("P", "create_new_playlist", "New Playlist", show=False),
+        Binding("I", "import_playlist", "Import Playlist", show=False),
         Binding("r", "rename_current_playlist", "Rename Playlist", show=False),
         Binding("d", "delete_item", "Delete", show=False),
         Binding("delete", "delete_item", "Delete", show=False),
@@ -331,13 +399,21 @@ class WaveApp(App):
         Binding("escape", "escape_focus", "Escape", show=False),
     ]
 
-    def __init__(self):
+    def __init__(self, initial_query: str = ""):
         super().__init__()
+        self.initial_query = initial_query
         self.db = Database()
         state = self.db.get_player_state()
         saved_vol = float(state.get("volume", 80.0))
         saved_auto = bool(state.get("autoplay", True))
-        self.player = Player(volume=saved_vol, autoplay=saved_auto)
+        saved_repeat = str(state.get("repeat_mode", "OFF"))
+        saved_shuffle = bool(state.get("shuffle", False))
+        self.player = Player(
+            volume=saved_vol,
+            autoplay=saved_auto,
+            repeat_mode=saved_repeat,
+            shuffle=saved_shuffle
+        )
         self.current_view = "SEARCH"  # SEARCH, QUEUE, LIKED, HISTORY, PLAYLIST:<id>
         self.tracks_in_table: List[Dict] = []
         self.selected_idx: int = 0
@@ -368,7 +444,7 @@ class WaveApp(App):
         with Horizontal(id="body-container"):
             # Sidebar
             with Vertical(id="sidebar"):
-                yield Label("NAVIGASI", classes="sidebar-heading", markup=False)
+                yield Label("WAVE-CLI", classes="sidebar-heading", id="sidebar-brand", markup=False)
                 yield Label("───────────────────────", classes="sidebar-divider", markup=False)
                 yield Button("> 1. SEARCH", id="nav-btn-1", classes="nav-button nav-active")
                 yield Button("  2. QUEUE (0)", id="nav-btn-2", classes="nav-button")
@@ -379,6 +455,7 @@ class WaveApp(App):
                 yield Label("PLAYLISTS", classes="sidebar-heading", markup=False)
                 yield Label("───────────────────────", classes="sidebar-divider", markup=False)
                 yield Button("[+] Buat Playlist", id="btn-sidebar-new-pl", classes="pl-add-button")
+                yield Button("[+] Import Playlist", id="btn-sidebar-import-pl", classes="pl-add-button")
                 yield Vertical(id="sidebar-playlists")
 
                 yield Label("KONTROL", classes="shortcuts-title", markup=False)
@@ -390,11 +467,15 @@ class WaveApp(App):
                 yield Label("[R]     Toggle Radio", classes="shortcut-text", markup=False)
                 yield Label("[m]     Masuk Playlist", classes="shortcut-text", markup=False)
                 yield Label("[P]     Playlist Baru", classes="shortcut-text", markup=False)
+                yield Label("[I]     Import Playlist", classes="shortcut-text", markup=False)
                 yield Label("[r]     Ubah Nama PL", classes="shortcut-text", markup=False)
                 yield Label("[d]     Hapus Lagu/PL", classes="shortcut-text", markup=False)
                 yield Label("[C]     Kosongkan List", classes="shortcut-text", markup=False)
                 yield Label("[[ / ]] Pindah Urutan", classes="shortcut-text", markup=False)
-                yield Label("[f]     Simpan/Like", classes="shortcut-text", markup=False)
+                yield Label("[f]     Fav Lagu", classes="shortcut-text", markup=False)
+                yield Label("[F]     Fav Now Playing", classes="shortcut-text", markup=False)
+                yield Label("[s]     Toggle Shuffle", classes="shortcut-text", markup=False)
+                yield Label("[t]     Toggle Repeat", classes="shortcut-text", markup=False)
                 yield Label("[Space] Play/Pause", classes="shortcut-text", markup=False)
                 yield Label("[p / n] Prev / Next", classes="shortcut-text", markup=False)
                 yield Label("[h / l] Seek -/+ 5s", classes="shortcut-text", markup=False)
@@ -415,14 +496,21 @@ class WaveApp(App):
             yield Label("[IDLE] Belum ada lagu yang diputar", id="player-title", markup=False)
             yield Label("00:00 [--------------------------------] 00:00", id="player-progress", markup=False)
             with Horizontal(id="player-controls"):
-                yield Button("[ |< ]", id="btn-prev", classes="player-btn")
-                yield Button("[ > ]", id="btn-play", classes="player-btn")
-                yield Button("[ >| ]", id="btn-next", classes="player-btn")
-                yield Button("[ -5s ]", id="btn-seek-back", classes="player-btn")
-                yield Button("[ +5s ]", id="btn-seek-fwd", classes="player-btn")
-                yield Button("[ -Vol ]", id="btn-vol-down", classes="player-btn")
-                yield Button("[ +Vol ]", id="btn-vol-up", classes="player-btn")
-                auto_lbl = "[ Radio: ON ]" if self.player.autoplay else "[ Radio: OFF ]"
+                yield Button("[|<]", id="btn-prev", classes="player-btn")
+                yield Button("[>]", id="btn-play", classes="player-btn")
+                yield Button("[>|]", id="btn-next", classes="player-btn")
+                yield Button("[-5s]", id="btn-seek-back", classes="player-btn")
+                yield Button("[+5s]", id="btn-seek-fwd", classes="player-btn")
+                yield Button("[-Vol]", id="btn-vol-down", classes="player-btn")
+                yield Button("[+Vol]", id="btn-vol-up", classes="player-btn")
+                yield Button("[Fav]", id="btn-player-fav", classes="player-btn")
+                shuf_lbl = "[Shuf:ON]" if self.player.shuffle else "[Shuf:OFF]"
+                shuf_cls = "player-btn is-active" if self.player.shuffle else "player-btn"
+                yield Button(shuf_lbl, id="btn-toggle-shuffle", classes=shuf_cls)
+                rep_lbl = f"[Rep:{self.player.repeat_mode}]"
+                rep_cls = "player-btn" + (" is-one" if self.player.repeat_mode == "ONE" else (" is-active" if self.player.repeat_mode == "ALL" else ""))
+                yield Button(rep_lbl, id="btn-toggle-repeat", classes=rep_cls)
+                auto_lbl = "[Radio:ON]" if self.player.autoplay else "[Radio:OFF]"
                 yield Button(auto_lbl, id="btn-toggle-autoplay", classes="player-btn")
             init_vol = make_vol_bar(self.player.volume)
             yield Label(f"STATUS: Ready                    VOL: {init_vol}", id="player-status", markup=False)
@@ -441,7 +529,11 @@ class WaveApp(App):
         self._refresh_playlists_sidebar()
         self._populate_table([])
         self._playback_timer = self.set_interval(0.25, self.tick_playback)
-        self.query_one("#search-input", Input).focus()
+        inp = self.query_one("#search-input", Input)
+        if self.initial_query:
+            inp.value = self.initial_query
+            self.search_and_populate(self.initial_query)
+        inp.focus()
 
     def _update_sidebar_counts(self):
         try:
@@ -463,8 +555,9 @@ class WaveApp(App):
             pass
 
     def _refresh_playlists_sidebar(self):
-        self.run_worker(self._update_playlists_sidebar)
+        self._update_playlists_sidebar()
 
+    @work(exclusive=True, group="sidebar", thread=False)
     async def _update_playlists_sidebar(self):
         try:
             pl_container = self.query_one("#sidebar-playlists", Vertical)
@@ -578,6 +671,10 @@ class WaveApp(App):
             elif self.current_view == "LIKED":
                 liked = self.db.get_liked_songs()
                 title_lbl.update(f"[LAGU FAVORIT / LIKED SONGS] ({len(liked)} lagu)")
+                if len(liked) > 0:
+                    await actions_box.mount(
+                        Button(Content("[ Download Semua ]"), id="btn-act-download-liked", classes="view-action-btn")
+                    )
             elif self.current_view == "HISTORY":
                 hist = self.db.get_history(50)
                 title_lbl.update(f"[RIWAYAT PEMUTARAN - HISTORY] ({len(hist)} lagu)")
@@ -589,10 +686,12 @@ class WaveApp(App):
                 pl_name = pl["name"] if pl else "Playlist"
                 tracks = self.db.get_playlist_tracks(pl_id)
                 title_lbl.update(f"[PLAYLIST: {pl_name.upper()}] ({len(tracks)} lagu)")
-                await actions_box.mount(
-                    Button(Content("[ Ubah Nama ]"), id="btn-act-rename-pl", classes="view-action-btn"),
-                    Button(Content("[ Hapus PL ]"), id="btn-act-delete-pl", classes="view-action-btn modal-btn-danger")
-                )
+                buttons = []
+                if len(tracks) > 0:
+                    buttons.append(Button(Content("[ Download Semua ]"), id="btn-act-download-pl", classes="view-action-btn"))
+                buttons.append(Button(Content("[ Ubah Nama ]"), id="btn-act-rename-pl", classes="view-action-btn"))
+                buttons.append(Button(Content("[ Hapus PL ]"), id="btn-act-delete-pl", classes="view-action-btn modal-btn-danger"))
+                await actions_box.mount(*buttons)
         except Exception:
             pass
 
@@ -704,7 +803,8 @@ class WaveApp(App):
             return
 
         if is_playlist_url(query):
-            self.import_youtube_playlist(query)
+            self.query_one("#search-input", Input).value = ""
+            self.action_import_playlist(initial_url=query)
             return
 
         self._current_search_query = query
@@ -714,18 +814,25 @@ class WaveApp(App):
         self._search_spinner_timer = self.set_interval(0.12, self._tick_search_spinner)
         self.perform_search(query)
 
-    @work(exclusive=True, thread=False)
-    async def import_youtube_playlist(self, url: str):
+    @work(exclusive=True, group="import_playlist", thread=False)
+    async def import_youtube_playlist(self, url: str, custom_name: Optional[str] = None):
         status_lbl = self.query_one("#search-status", Label)
         status_lbl.update("[IMPORT] Mengambil daftar lagu dari YouTube Playlist...")
+        self.notify("[IMPORT] Mengambil metadata playlist dari YouTube...", timeout=2.5)
 
         pl_title, tracks = await fetch_youtube_playlist(url, limit=150)
 
         if not tracks:
             status_lbl.update("[ERROR] Gagal mengambil playlist atau playlist kosong / privat.")
+            self.notify("[ERROR] Gagal mengambil playlist YouTube. Pastikan link publik & valid.", timeout=3.0)
             return
 
-        pl_id = self.db.create_playlist(pl_title)
+        final_title = custom_name.strip() if custom_name and custom_name.strip() else pl_title
+        pl_id = self.db.create_playlist(final_title)
+        if not pl_id:
+            self.notify("[ERROR] Gagal membuat playlist di database.", timeout=2.5)
+            return
+
         added_count = 0
         for tr in tracks:
             if self.db.add_to_playlist(pl_id, tr):
@@ -734,7 +841,7 @@ class WaveApp(App):
         self._update_sidebar_counts()
         self._refresh_playlists_sidebar()
         self.action_nav_playlist(pl_id)
-        self.notify(f"[PLAYLIST] Berhasil import '{pl_title}' ({added_count} lagu)!", timeout=3.5)
+        self.notify(f"[PLAYLIST] Berhasil import '{final_title}' ({added_count} lagu)!", timeout=3.5)
 
     def _tick_search_spinner(self):
         frame = self._spinner_frames[self._search_spinner_idx % len(self._spinner_frames)]
@@ -742,8 +849,9 @@ class WaveApp(App):
         status_lbl = self.query_one("#search-status", Label)
         status_lbl.update(f"Mencari: \"{self._current_search_query}\" {frame}")
 
-    @work(exclusive=True, thread=False)
+    @work(exclusive=True, group="search", thread=False)
     async def perform_search(self, query: str):
+        # 1. Fetch initial batch of 15 fast
         results = await search_youtube(query, limit=15)
         if self._search_spinner_timer:
             self._search_spinner_timer.stop()
@@ -755,11 +863,54 @@ class WaveApp(App):
             status_lbl.update(f"Tidak ada hasil untuk: \"{query}\". Coba kata kunci lain.")
             return
 
-        self.tracks_in_table = results
+        self.tracks_in_table = list(results)
         self.selected_idx = 0
-        status_lbl.update(f"Ditemukan {len(results)} lagu. Gunakan Panah Bawah/Atas + Enter, atau klik langsung tombol aksi.")
+        status_lbl.update(f"Ditemukan {len(results)} lagu (memuat lebih banyak...). Gunakan Panah + Enter.")
         self._populate_table(results)
         self.query_one("#tracks-scroll", VerticalScroll).focus()
+
+        # 2. Asynchronously fetch extended batch (up to 40) in background without flicker
+        asyncio.create_task(self._fetch_extended_search(query, existing_ids={r.get("id") for r in results if r.get("id")}))
+
+    async def _fetch_extended_search(self, query: str, existing_ids: set):
+        try:
+            more_results = await search_youtube(query, limit=40)
+            if self.current_view != "SEARCH" or self._current_search_query != query:
+                return
+            new_tracks = [t for t in more_results if t.get("id") and t.get("id") not in existing_ids]
+            if not new_tracks:
+                try:
+                    self.query_one("#search-status", Label).update(
+                        f"Ditemukan {len(self.tracks_in_table)} lagu. Gunakan Panah Bawah/Atas + Enter."
+                    )
+                except Exception:
+                    pass
+                return
+
+            start_idx = len(self.tracks_in_table)
+            self.tracks_in_table.extend(new_tracks)
+
+            cur_id = self.player.current_track.get("id") if self.player.current_track else None
+            new_rows = []
+            for i, track in enumerate(new_tracks):
+                idx = start_idx + i
+                t_id = track.get("id", "")
+                is_playing = bool(cur_id and cur_id == t_id)
+                is_liked = self.db.is_liked(t_id)
+                new_rows.append(TrackRow(idx, track, is_selected=False, is_playing=is_playing, is_liked=is_liked))
+
+            scroll = self.query_one("#tracks-scroll", VerticalScroll)
+            await scroll.mount(*new_rows)
+
+            try:
+                self.query_one("#search-status", Label).update(
+                    f"Ditemukan {len(self.tracks_in_table)} lagu. Gunakan Panah Bawah/Atas + Enter."
+                )
+                self._update_view_header()
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     # ---------------- KEYBOARD CURSOR NAVIGATION ----------------
 
@@ -865,26 +1016,35 @@ class WaveApp(App):
         active_list = self._get_active_list()
         if 0 <= idx < len(active_list):
             track = active_list[idx]
-            self._play_track(track)
             subsequent = active_list[idx + 1:]
             if self.current_view.startswith("PLAYLIST:") or self.current_view == "LIKED":
-                # Context queue follows playlist sequence
-                self.player.context_queue = list(subsequent)
+                # Context queue follows playlist sequence, keeping full context for Repeat ALL/Shuffle
+                self.player.full_context_list = list(active_list)
+                if self.player.shuffle:
+                    shuffled_rem = [t for i, t in enumerate(active_list) if i != idx]
+                    random.shuffle(shuffled_rem)
+                    self.player.context_queue = shuffled_rem
+                else:
+                    self.player.context_queue = list(subsequent)
+                self._play_track(track)
             elif self.current_view == "SEARCH":
                 # Spotify-style: search does NOT hijack or overwrite user queue!
                 self.player.context_queue = []
+                self._play_track(track)
             elif self.current_view == "QUEUE":
                 if 0 <= idx < len(self.player.queue):
                     self.player.queue.pop(idx)
                     self.db.save_queue(self.player.queue)
+                self._play_track(track)
                 self._update_sidebar_counts()
                 self._populate_table(self.player.queue)
                 self._update_view_header()
             elif self.current_view == "RADIO":
                 if 0 <= idx < len(self.player.radio_queue):
-                    self.player.radio_queue.pop(idx)
+                    self.player.radio_queue = list(self.player.radio_queue[idx + 1:])
+                self._play_track(track)
                 self._update_sidebar_counts()
-                self._populate_table(self.player.radio_queue)
+                self._update_row_playing_states(track.get("id"))
                 self._update_view_header()
 
     def _play_next_at_index(self, idx: int):
@@ -954,6 +1114,7 @@ class WaveApp(App):
                 if btn:
                     btn.label = Content("[ Liked ]")
                     btn.add_class("is-liked")
+                asyncio.create_task(self._auto_cache_track(track))
             self._update_sidebar_counts()
             if self.current_view == "LIKED":
                 self._populate_table(self.db.get_liked_songs())
@@ -1020,7 +1181,13 @@ class WaveApp(App):
                     self.player.radio_queue = filtered
                     self._update_sidebar_counts()
                     if self.current_view == "RADIO":
-                        self._populate_table(self.player.radio_queue)
+                        scroll = self.query_one("#tracks-scroll", VerticalScroll)
+                        # Only re-populate table if it was empty or showing empty message
+                        has_tracks = bool(scroll.children and not any(isinstance(c, Label) and c.has_class("empty-state") for c in scroll.children))
+                        if not has_tracks:
+                            self._populate_table(self.player.radio_queue)
+                        else:
+                            self._update_row_playing_states(seed_track.get("id"))
                         self._update_view_header()
         except Exception:
             pass
@@ -1042,6 +1209,53 @@ class WaveApp(App):
                     pass
         except Exception:
             pass
+
+    def _update_row_cache_states(self, track_id: Optional[str] = None):
+        """Update offline [v] indicator on existing rows in-place without re-rendering DOM."""
+        try:
+            for row in self.query(TrackRow):
+                row_id = row.track.get("id")
+                if track_id is None or row_id == track_id:
+                    cached = is_track_cached(row_id)
+                    try:
+                        lbl = row.query_one(f"#lbl-row-cache-{row.idx}", Label)
+                        lbl.update("[v]" if cached else "   ")
+                        if cached:
+                            lbl.add_class("is-cached")
+                        else:
+                            lbl.remove_class("is-cached")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    async def _auto_cache_track(self, track: Dict):
+        """Silently download audio in background when liked or added to playlist."""
+        vid_id = track.get("id")
+        if not vid_id or is_track_cached(vid_id):
+            return
+        success = await download_track_audio(track)
+        if success:
+            self._update_row_cache_states(vid_id)
+
+    @work(exclusive=True, group="batch_download", thread=False)
+    async def _download_tracks_batch(self, tracks: List[Dict], container_name: str):
+        """Batch sequential background download with live notification and indicator update."""
+        to_download = [t for t in tracks if t.get("id") and not is_track_cached(t.get("id"))]
+        total = len(to_download)
+        if total == 0:
+            self.notify(f"[{container_name.upper()}] Semua lagu sudah ter-download offline!", timeout=3.0)
+            return
+
+        self.notify(f"[{container_name.upper()}] Memulai download {total} lagu di background...", timeout=3.0)
+        done = 0
+        for track in to_download:
+            vid_id = track.get("id")
+            ok = await download_track_audio(track)
+            if ok:
+                done += 1
+                self._update_row_cache_states(vid_id)
+        self.notify(f"[{container_name.upper()}] Selesai! {done}/{total} lagu tersimpan di cache offline.", timeout=4.0)
 
     def _refresh_current_view(self):
         active = self._get_active_list()
@@ -1068,6 +1282,7 @@ class WaveApp(App):
                 self.action_create_new_playlist(initial_track=track)
             else:
                 self.db.add_to_playlist(result, track)
+                asyncio.create_task(self._auto_cache_track(track))
                 pl = self.db.get_playlist(result)
                 pl_name = pl["name"] if pl else "Playlist"
                 self.notify(f"[PLAYLIST] Disimpan ke '{pl_name}'!", timeout=2.5)
@@ -1089,6 +1304,7 @@ class WaveApp(App):
                 return
             if initial_track:
                 self.db.add_to_playlist(pl_id, initial_track)
+                asyncio.create_task(self._auto_cache_track(initial_track))
                 self.notify(f"[PLAYLIST] '{name}' dibuat & lagu ditambahkan!", timeout=2.5)
             else:
                 self.notify(f"[PLAYLIST] Playlist '{name}' berhasil dibuat!", timeout=2.5)
@@ -1097,6 +1313,17 @@ class WaveApp(App):
             self.action_nav_playlist(pl_id)
 
         self.push_screen(NewPlaylistModal(), handle_new_pl)
+
+    def action_import_playlist(self, initial_url: str = ""):
+        """Prompt modal to import a YouTube playlist with custom name."""
+        def handle_import_data(result: Optional[Dict[str, str]]):
+            if not result or not result.get("url"):
+                return
+            url = result["url"]
+            name = result.get("name")
+            self.import_youtube_playlist(url, custom_name=name)
+
+        self.push_screen(ImportPlaylistModal(initial_url=initial_url), handle_import_data)
 
     def action_delete_item(self):
         """Delete highlighted track from current playlist or queue with key 'd'."""
@@ -1230,17 +1457,78 @@ class WaveApp(App):
         else:
             self.notify("[PLAYER] Tidak ada riwayat lagu sebelumnya.", timeout=2.0)
 
-    def action_next_track(self):
-        next_track = self.player.play_next()
+    def action_next_track(self, is_eof: bool = False):
+        next_track = self.player.play_next(is_eof=is_eof)
         self.db.save_queue(self.player.queue)
         self._update_sidebar_counts()
         if next_track:
             self._play_track(next_track)
         else:
             self.notify("[QUEUE] Antrean lagu telah selesai.", timeout=2.0)
-        if self.current_view == "QUEUE":
+        if self.current_view in ("QUEUE", "RADIO"):
             self._populate_table(self._get_active_list())
             self._update_view_header()
+
+    def action_toggle_like_now_playing(self):
+        """Toggle like/favorite on the currently playing track (hotkey 'F' or click [Fav])."""
+        track = self.player.current_track
+        if not track or not track.get("id"):
+            self.notify("[FAV] Tidak ada lagu yang sedang diputar.", timeout=1.5)
+            return
+
+        vid_id = track.get("id", "")
+        if self.db.is_liked(vid_id):
+            self.db.remove_liked(vid_id)
+            title = track.get("title", "")[:30]
+            self.notify(f"[LIKED] Dihapus dari Favorit: {title}", timeout=2.0)
+        else:
+            self.db.add_liked(
+                vid_id,
+                track.get("title", ""),
+                track.get("artist", ""),
+                track.get("duration", ""),
+                track.get("duration_sec", 0),
+                track.get("url", "")
+            )
+            title = track.get("title", "")[:30]
+            self.notify(f"[LIKED] Disimpan ke Favorit: {title}", timeout=2.0)
+            asyncio.create_task(self._auto_cache_track(track))
+
+        self._update_sidebar_counts()
+        for row in self.query(TrackRow):
+            if row.track.get("id") == vid_id:
+                is_liked = self.db.is_liked(vid_id)
+                row.is_liked = is_liked
+                try:
+                    b = row.query_one(f"#btn-row-fav-{row.idx}", Button)
+                    b.label = Content("[ Liked ]") if is_liked else Content("[ Fav ]")
+                    if is_liked:
+                        b.add_class("is-liked")
+                    else:
+                        b.remove_class("is-liked")
+                except Exception:
+                    pass
+        if self.current_view == "LIKED":
+            self._populate_table(self.db.get_liked_songs())
+            self._update_view_header()
+
+    def action_toggle_shuffle(self):
+        """Toggle shuffle mode (hotkey 's')."""
+        is_shuf = self.player.toggle_shuffle()
+        self._save_current_player_state()
+        state_str = "ON (Acak)" if is_shuf else "OFF (Normal)"
+        self.notify(f"[SHUFFLE] Mode Acak: {state_str}", timeout=1.5)
+
+    def action_toggle_repeat(self):
+        """Cycle repeat mode: OFF -> ALL -> ONE -> OFF (hotkey 't')."""
+        mode = self.player.toggle_repeat()
+        self._save_current_player_state()
+        desc = {
+            "OFF": "OFF (Tidak Ulang)",
+            "ALL": "ALL (Ulang Playlist)",
+            "ONE": "ONE (Ulang 1 Lagu)"
+        }.get(mode, mode)
+        self.notify(f"[REPEAT] Mode Putar Ulang: {desc}", timeout=1.5)
 
     @on(Button.Pressed)
     def on_button_click(self, event: Button.Pressed) -> None:
@@ -1250,6 +1538,16 @@ class WaveApp(App):
             self.action_clear_current_view()
         elif btn_id == "btn-act-clear-history":
             self.action_clear_current_view()
+        elif btn_id == "btn-act-download-liked":
+            liked = self.db.get_liked_songs()
+            self._download_tracks_batch(liked, "Favorit")
+        elif btn_id == "btn-act-download-pl":
+            if self.current_view.startswith("PLAYLIST:"):
+                pl_id = int(self.current_view.split(":")[1])
+                pl = self.db.get_playlist(pl_id)
+                pl_name = pl["name"] if pl else "Playlist"
+                tracks = self.db.get_playlist_tracks(pl_id)
+                self._download_tracks_batch(tracks, pl_name)
         elif btn_id == "btn-act-rename-pl":
             self.action_rename_current_playlist()
         elif btn_id == "btn-act-delete-pl":
@@ -1288,6 +1586,12 @@ class WaveApp(App):
             self.action_vol_down()
         elif btn_id == "btn-vol-up":
             self.action_vol_up()
+        elif btn_id == "btn-player-fav":
+            self.action_toggle_like_now_playing()
+        elif btn_id == "btn-toggle-shuffle":
+            self.action_toggle_shuffle()
+        elif btn_id == "btn-toggle-repeat":
+            self.action_toggle_repeat()
         elif btn_id == "btn-toggle-autoplay":
             self.action_toggle_autoplay()
         # Sidebar Navigation
@@ -1304,7 +1608,18 @@ class WaveApp(App):
         elif btn_id == "btn-act-refresh-radio":
             if self.player.current_track:
                 self.notify("[RADIO] Memperbarui daftar rekomendasi...", timeout=1.5)
-                asyncio.create_task(self._refresh_radio_recommendations(self.player.current_track))
+                async def _do_manual_refresh():
+                    seed = self.player.current_track
+                    recs = await fetch_radio_mix(seed.get("id", ""), artist=seed.get("artist", ""), title=seed.get("title", ""), limit=15)
+                    if recs:
+                        for r in recs:
+                            r["is_radio"] = True
+                        self.player.radio_queue = recs
+                        self._update_sidebar_counts()
+                        if self.current_view == "RADIO":
+                            self._populate_table(self.player.radio_queue)
+                            self._update_view_header()
+                asyncio.create_task(_do_manual_refresh())
             else:
                 self.notify("[RADIO] Putar lagu terlebih dahulu.", timeout=2.0)
         elif btn_id == "btn-act-play-all-radio":
@@ -1316,6 +1631,8 @@ class WaveApp(App):
                 self._update_view_header()
         elif btn_id == "btn-sidebar-new-pl":
             self.action_create_new_playlist()
+        elif btn_id == "btn-sidebar-import-pl":
+            self.action_import_playlist()
         elif btn_id.startswith("nav-pl-"):
             pl_id = int(btn_id.replace("nav-pl-", ""))
             self.action_nav_playlist(pl_id)
@@ -1364,7 +1681,9 @@ class WaveApp(App):
                 queue_index=0,
                 time_pos=self.player._last_time_pos,
                 volume=self.player.volume,
-                autoplay=self.player.autoplay
+                autoplay=self.player.autoplay,
+                repeat_mode=self.player.repeat_mode,
+                shuffle=self.player.shuffle
             )
         except Exception:
             pass
@@ -1401,71 +1720,112 @@ class WaveApp(App):
 
     def tick_playback(self):
         """Atomic update of ONLY the 3 player labels (no table or layout re-rendering)."""
-        status = self.player.get_status()
+        try:
+            status = self.player.get_status()
 
-        # Handle song completion -> auto-play next in queue
-        if status.get("eof"):
-            self.action_next_track()
-            return
+            # Handle song completion -> auto-play next in queue or repeat
+            if status.get("eof"):
+                self.action_next_track(is_eof=True)
+                return
 
-        title_lbl = self.query_one("#player-title", Label)
-        prog_lbl = self.query_one("#player-progress", Label)
-        stat_lbl = self.query_one("#player-status", Label)
+            title_lbl = self.query_one("#player-title", Label)
+            prog_lbl = self.query_one("#player-progress", Label)
+            stat_lbl = self.query_one("#player-status", Label)
 
-        if not status["active"]:
-            self.is_loading_track = False
-            title_lbl.update("[IDLE] Belum ada lagu yang diputar")
-            prog_lbl.update("00:00 [--------------------------------] 00:00")
-            stat_lbl.update("STATUS: Ready                    VOL: " + make_vol_bar(status["volume"]))
+            # Sync bottom player buttons (Fav, Shuffle, Repeat)
             try:
-                self.query_one("#btn-play", Button).label = Content("[ > ]")
+                fav_btn = self.query_one("#btn-player-fav", Button)
+                if self.player.current_track and self.player.current_track.get("id"):
+                    is_fav = self.db.is_liked(self.player.current_track.get("id"))
+                    fav_btn.label = Content("[Liked]") if is_fav else Content("[Fav]")
+                    if is_fav:
+                        fav_btn.add_class("is-liked")
+                    else:
+                        fav_btn.remove_class("is-liked")
+                else:
+                    fav_btn.label = Content("[Fav]")
+                    fav_btn.remove_class("is-liked")
             except Exception:
                 pass
-            return
 
-        # Check if we transitioned from loading to playing
-        if self.is_loading_track:
-            if status["time_pos"] > 0:
+            try:
+                shuf_btn = self.query_one("#btn-toggle-shuffle", Button)
+                shuf_btn.label = Content(f"[Shuf:{'ON' if self.player.shuffle else 'OFF'}]")
+                if self.player.shuffle:
+                    shuf_btn.add_class("is-active")
+                else:
+                    shuf_btn.remove_class("is-active")
+            except Exception:
+                pass
+
+            try:
+                rep_btn = self.query_one("#btn-toggle-repeat", Button)
+                rep_btn.label = Content(f"[Rep:{self.player.repeat_mode}]")
+                rep_btn.remove_class("is-active", "is-one")
+                if self.player.repeat_mode == "ONE":
+                    rep_btn.add_class("is-one")
+                elif self.player.repeat_mode == "ALL":
+                    rep_btn.add_class("is-active")
+            except Exception:
+                pass
+
+            if not status["active"]:
                 self.is_loading_track = False
-            else:
-                # Still loading, animate symbol
-                self._load_symbol_idx += 1
-                frame = self._load_frames[self._load_symbol_idx % len(self._load_frames)]
-                track = self.loading_track_info or {}
-                title_lbl.update(f"[LOAD {frame}] {track.get('title', '')} - {track.get('artist', '')}")
-                dur = track.get("duration", "--:--")
-                prog_lbl.update(f"00:00 [===>----------------------------] {dur}")
-                stat_lbl.update(f"STATUS: Loading {frame}                  VOL: " + make_vol_bar(status["volume"]))
+                title_lbl.update("[IDLE] Belum ada lagu yang diputar")
+                prog_lbl.update("00:00 [--------------------------------] 00:00")
+                stat_lbl.update("STATUS: Ready                    VOL: " + make_vol_bar(status["volume"]))
                 try:
-                    self.query_one("#btn-play", Button).label = Content(f"[ {frame} ]")
+                    self.query_one("#btn-play", Button).label = Content("[>]")
                 except Exception:
                     pass
                 return
 
-        # Normal active playback
-        play_state = "[PAUSE]" if status["paused"] else "[PLAY]"
-        title_str = f"{play_state} {status['title']} - {status['artist']}"
-        title_lbl.update(title_str)
-        try:
-            self.query_one("#btn-play", Button).label = Content("[ > ]") if status["paused"] else Content("[ || ]")
+            # Check if we transitioned from loading to playing
+            if self.is_loading_track:
+                if status["time_pos"] > 0:
+                    self.is_loading_track = False
+                else:
+                    # Still loading, animate symbol
+                    self._load_symbol_idx += 1
+                    frame = self._load_frames[self._load_symbol_idx % len(self._load_frames)]
+                    track = self.loading_track_info or {}
+                    title_lbl.update(f"[LOAD {frame}] {track.get('title', '')} - {track.get('artist', '')}")
+                    dur = track.get("duration", "--:--")
+                    prog_lbl.update(f"00:00 [===>----------------------------] {dur}")
+                    stat_lbl.update(f"STATUS: Loading {frame}                  VOL: " + make_vol_bar(status["volume"]))
+                    try:
+                        self.query_one("#btn-play", Button).label = Content(f"[{frame}]")
+                    except Exception:
+                        pass
+                    return
+
+            # Normal active playback
+            play_state = "[PAUSE]" if status["paused"] else "[PLAY]"
+            title_str = f"{play_state} {status['title']} - {status['artist']}"
+            title_lbl.update(title_str)
+            try:
+                self.query_one("#btn-play", Button).label = Content("[>]") if status["paused"] else Content("[||]")
+            except Exception:
+                pass
+
+            # Progress bar
+            bar_str = make_progress_bar(status["percent"], width=32)
+            prog_lbl.update(f"{status['time_str']} {bar_str} {status['dur_str']}")
+
+            # Bottom status
+            state_name = "Paused " if status["paused"] else "Playing"
+            audio_source = "Offline/Opus" if status.get("is_offline") else "PipeWire/Opus"
+            queue_len = len(self.player.queue)
+            radio_len = len(self.player.radio_queue) if self.player.autoplay else 0
+            q_info = f"QUEUE: {queue_len}"
+            if radio_len > 0:
+                q_info += f" (+{radio_len} Radio)"
+            auto_text = "ON" if self.player.autoplay else "OFF"
+            stat_lbl.update(
+                f"STATUS: {state_name} ({audio_source})   {q_info}   RADIO: [{auto_text}]   VOL: " + make_vol_bar(status["volume"])
+            )
         except Exception:
             pass
-
-        # Progress bar
-        bar_str = make_progress_bar(status["percent"], width=32)
-        prog_lbl.update(f"{status['time_str']} {bar_str} {status['dur_str']}")
-
-        # Bottom status
-        state_name = "Paused " if status["paused"] else "Playing"
-        queue_len = len(self.player.queue)
-        radio_len = len(self.player.radio_queue) if self.player.autoplay else 0
-        q_info = f"QUEUE: {queue_len}"
-        if radio_len > 0:
-            q_info += f" (+{radio_len} Radio)"
-        auto_text = "ON" if self.player.autoplay else "OFF"
-        stat_lbl.update(
-            f"STATUS: {state_name} (PipeWire/Opus)   {q_info}   RADIO: [{auto_text}]   VOL: " + make_vol_bar(status["volume"])
-        )
 
     # ---------------- CLEAN SHUTDOWN ----------------
 

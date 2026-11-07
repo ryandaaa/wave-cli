@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wave-cli"
+version = "0.2.0"
+description = "Spotify-Style Zero-Flicker Terminal Music Player for Linux"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "wave-cli contributors" }
+]
+keywords = ["music", "player", "tui", "textual", "mpv", "spotify", "terminal", "linux"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Players",
+]
+dependencies = [
+    "textual>=0.80.0",
+    "rich>=13.0.0",
+    "platformdirs>=4.0.0",
+]
+
+[project.scripts]
+wave = "main:main"
+wave-cli = "main:main"
+
+[tool.setuptools]
+py-modules = ["audio_cache", "database", "main", "player", "search", "tui"]
+
+[tool.setuptools.package-data]
+"*" = ["wave.tcss"]
