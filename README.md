@@ -46,12 +46,12 @@ Built with Python (**Textual** & **Rich**), **mpv** UNIX domain socket JSON IPC,
 
 ## Kebutuhan Sistem
 
-* **Linux OS** (Ubuntu/Debian, Arch Linux, Fedora, openSUSE, dll)
-* **Python 3.10** atau lebih baru
-* **mpv** (audio backend dan JSON IPC)
-* **yt-dlp** (akan diinstall otomatis oleh skrip installer)
+* **Sistem Operasi:** Linux, macOS (Apple Silicon / Intel), atau Windows
+* **mpv:** Audio backend dan JSON IPC engine
+* **Python 3.10+:** (Hanya jika menjalankan via source code / pip; tidak diperlukan jika menggunakan Standalone Binary)
+* **yt-dlp:** Ekstraksi audio streaming (diinstall otomatis oleh installer)
 
-Instalasi `mpv` via package manager:
+Instalasi `mpv`:
 ```bash
 # Ubuntu / Debian / Linux Mint
 sudo apt update && sudo apt install mpv
@@ -62,15 +62,37 @@ sudo pacman -S mpv
 # Fedora
 sudo dnf install mpv
 
-# openSUSE
-sudo zypper install mpv
+# macOS (Homebrew)
+brew install mpv
+
+# Windows (Chocolatey atau Winget)
+choco install mpv
+# atau: winget install mpv.net
 ```
 
 ---
 
 ## Panduan Instalasi
 
-### Metode 1: Skrip Otomatis (Direkomendasikan)
+### Metode 1: Download Standalone Binary (Tanpa Setup Python)
+
+Anda bisa langsung mengunduh binary portabel yang sudah terkompilasi dari halaman **GitHub Releases**:
+
+* **Linux x86_64:** `wave-linux-x86_64.tar.gz`
+* **macOS Apple Silicon (M1/M2/M3/M4):** `wave-macos-arm64.tar.gz`
+* **macOS Intel:** `wave-macos-x86_64.tar.gz`
+* **Windows x86_64:** `wave-windows-x86_64.zip`
+
+Cukup ekstrak file tersebut dan pindahkan ke direktori PATH Anda:
+```bash
+# Contoh untuk Linux / macOS:
+tar -xvf wave-linux-x86_64.tar.gz
+sudo mv wave /usr/local/bin/wave
+```
+
+---
+
+### Metode 2: Skrip Otomatis Linux (Direkomendasikan dari Source)
 
 Jalankan skrip installer yang telah disediakan di dalam repositori:
 

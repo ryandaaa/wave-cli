@@ -1,0 +1,126 @@
+name: CD - Multi-OS Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 1. Multi-OS Standalone Binary Builds (PyInstaller)
+  # --------------------------------------------------------------------------
+  build-binaries:
+    name: Build Binary (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+            archive-pattern: "dist/wave-linux-x86_64.*"
+
+          - os: macos-latest
+            target: macos-arm64
+            archive-pattern: "dist/wave-macos-arm64.*"
+
+          - os: macos-13
+            target: macos-x86_64
+            archive-pattern: "dist/wave-macos-x86_64.*"
+
+          - os: windows-latest
+            target: windows-x86_64
+            archive-pattern: "dist/wave-windows-x86_64.*"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller yt-dlp
+
+      - name: Build standalone binary and release package
+        run: |
+          python scripts/build_release.py ${{ matrix.target }}
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: ${{ matrix.archive-pattern }}
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # 2. Python Package Distribution (Wheel & Source Distribution)
+  # --------------------------------------------------------------------------
+  build-package:
+    name: Build Python Package (sdist & wheel)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tool
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/*
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # 3. Publish to GitHub Releases
+  # --------------------------------------------------------------------------
+  publish-release:
+    name: Publish Multi-OS GitHub Release
+    needs: [build-binaries, build-package]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Display downloaded assets
+        run: |
+          ls -la release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

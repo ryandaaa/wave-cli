@@ -8,6 +8,8 @@ import random
 import shutil
 import socket
 import subprocess
+import sys
+import tempfile
 import time
 from typing import Dict, List, Optional
 from search import find_yt_dlp, format_duration
@@ -23,9 +25,15 @@ class Player:
         repeat_mode: str = "OFF",
         shuffle: bool = False
     ):
-        self.sock_path = sock_path or f"/tmp/wave-mpv-{os.getpid()}.sock"
+        if sock_path:
+            self.sock_path = sock_path
+        elif sys.platform == "win32":
+            self.sock_path = rf"\\.\pipe\wave-mpv-{os.getpid()}"
+        else:
+            self.sock_path = os.path.join(tempfile.gettempdir(), f"wave-mpv-{os.getpid()}.sock")
         self.proc: Optional[subprocess.Popen] = None
         self.sock: Optional[socket.socket] = None
+        self.pipe = None
         self.current_track: Optional[Dict] = None
         self.queue: List[Dict] = []           # Manual User Queue (Tier 1)
         self.context_queue: List[Dict] = []   # Playlist/Liked Queue (Tier 2)
@@ -50,7 +58,7 @@ class Player:
 
     def start(self):
         """Start mpv process in background with JSON IPC server."""
-        if os.path.exists(self.sock_path):
+        if sys.platform != "win32" and os.path.exists(self.sock_path):
             try:
                 os.unlink(self.sock_path)
             except OSError:
@@ -74,27 +82,63 @@ class Player:
             stderr=subprocess.DEVNULL
         )
 
-        # Wait until socket is created
+        # Wait until socket/pipe is created
         for _ in range(30):
-            if os.path.exists(self.sock_path):
+            if sys.platform == "win32":
+                if self._connect_socket():
+                    return
+            elif os.path.exists(self.sock_path):
                 break
             time.sleep(0.1)
 
         self._connect_socket()
 
     def _connect_socket(self) -> bool:
-        try:
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.settimeout(0.05)
-            self.sock.connect(self.sock_path)
-            return True
-        except (socket.error, OSError):
-            self.sock = None
-            return False
+        if sys.platform == "win32":
+            try:
+                self.pipe = open(self.sock_path, "r+b", buffering=0)
+                return True
+            except OSError:
+                self.pipe = None
+                return False
+        else:
+            try:
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self.sock.settimeout(0.05)
+                self.sock.connect(self.sock_path)
+                return True
+            except (socket.error, OSError):
+                self.sock = None
+                return False
 
     def send_command(self, cmd_list: list) -> Optional[dict]:
         """Send a command list to mpv JSON IPC and read response."""
         self._ensure_running()
+        if sys.platform == "win32":
+            if not self.pipe:
+                if not self._connect_socket():
+                    return None
+            for attempt in range(2):
+                try:
+                    payload = json.dumps({"command": cmd_list}).encode("utf-8") + b"\n"
+                    self.pipe.write(payload)
+                    while True:
+                        line = self.pipe.readline()
+                        if not line:
+                            break
+                        try:
+                            res = json.loads(line.decode("utf-8", errors="ignore").strip())
+                            if "error" in res:
+                                return res
+                        except json.JSONDecodeError:
+                            continue
+                except OSError:
+                    self.pipe = None
+                    if attempt == 0 and self._connect_socket():
+                        continue
+                    return None
+            return None
+
         if not self.sock:
             if not self._connect_socket():
                 return None
@@ -392,6 +436,15 @@ class Player:
                 self.sock.close()
         except Exception:
             pass
+        self.sock = None
+
+        if hasattr(self, "pipe") and self.pipe:
+            try:
+                self.send_command(["quit"])
+                self.pipe.close()
+            except Exception:
+                pass
+            self.pipe = None
 
         if self.proc:
             try:
