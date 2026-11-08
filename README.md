@@ -74,7 +74,25 @@ choco install mpv
 
 ## Panduan Instalasi
 
-### Metode 1: Download Standalone Binary (Tanpa Setup Python)
+### Metode 1: Satu Baris Auto-Install (Sangat Direkomendasikan)
+
+Cukup salin dan jalankan perintah satu baris berikut di terminal Linux atau macOS Anda:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ryandaaa/wave-cli/main/install.sh | bash
+```
+
+Skrip ini akan secara otomatis:
+1. Mendeteksi OS & arsitektur mesin (`Linux x86_64` atau `macOS arm64`).
+2. Mengunduh dan memasang executable mandiri `wave` ke `~/.local/bin/wave`.
+3. Memeriksa `yt-dlp` dan mengunduh binary resminya secara otomatis jika belum ada.
+4. Memeriksa `mpv` dan memberikan panduan perintah instalasi satu baris sesuai distro Anda jika belum terpasang.
+
+*(Tanpa perlu menginstall Python atau melakukan kompilasi manual)*.
+
+---
+
+### Metode 2: Download Manual dari GitHub Releases
 
 Anda bisa langsung mengunduh binary portabel yang sudah terkompilasi dari halaman **GitHub Releases**:
 
@@ -91,32 +109,18 @@ sudo mv wave /usr/local/bin/wave
 
 ---
 
-### Metode 2: Skrip Otomatis Linux (Direkomendasikan dari Source)
+### Metode 3: Instalasi dari Source Code (Git Clone)
 
-Jalankan skrip installer yang telah disediakan di dalam repositori:
+Jika ingin menjalankan atau mengembangkan langsung dari source code:
 
 ```bash
-git clone https://github.com/username/wave-cli.git
+git clone https://github.com/ryandaaa/wave-cli.git
 cd wave-cli
-./install.sh
+./install.sh --dev
 ```
 
-Skrip ini akan secara otomatis:
-1. Memeriksa keberadaan Python >= 3.10 dan `mpv`.
-2. Menyiapkan environment terisolasi di `~/.local/share/wave-cli/venv`.
-3. Memasang dependensi Python (`textual`, `rich`, `platformdirs`, `yt-dlp`).
-4. Membuat shortcut perintah global `wave` dan `wave-cli` di `~/.local/bin/`.
-
-*(Jika Anda ingin menghubungkan langsung ke folder repository untuk pengembangan, gunakan `./install.sh --dev`)*.
-
----
-
-### Metode 2: Pipx / Pip
-
-Jika Anda terbiasa menggunakan `pipx` atau `pip`:
-
+Atau menggunakan `pipx` / `pip`:
 ```bash
-cd wave-cli
 pipx install .
 # atau
 pip install .
