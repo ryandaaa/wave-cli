@@ -22,46 +22,15 @@ from search import search_youtube, format_duration, is_playlist_url, fetch_youtu
 from audio_cache import is_track_cached, download_track_audio
 
 from textual.renderables import blank
-from textual.color import Color
-from rich.style import Style as RichStyle
-from textual import style
 
 # ---------------- ROOT TRANSPARENCY PATCH ----------------
-# 1. Intercept Textual's Blank renderer so transparent containers never emit black (#000000)
-_orig_blank_init = blank.Blank.__init__
-
-def _patched_blank_init(self, color="transparent"):
-    if isinstance(color, str):
-        c = Color.parse(color)
-    elif isinstance(color, Color):
-        c = color
-    else:
-        c = Color(0, 0, 0, a=0)
-
-    if c.a == 0 or getattr(c, "is_transparent", False):
-        self._rich_style = RichStyle()  # Pure transparent! No background ANSI code!
-    else:
-        _orig_blank_init(self, color)
-
-blank.Blank.__init__ = _patched_blank_init
-
-# 2. Intercept Style.__init__ so any transparent background (alpha=0) becomes None
-# This prevents Textual from converting transparent Color(0,0,0,0) into Rich '#000000' on labels & text!
-_orig_style_init = style.Style.__init__
-
-def _patched_style_init(self, *args, **kwargs):
-    args = list(args)
-    if args:
-        bg = args[0]
-        if bg is not None and getattr(bg, "a", 1.0) == 0:
-            args[0] = None
-    elif "background" in kwargs:
-        bg = kwargs["background"]
-        if bg is not None and getattr(bg, "a", 1.0) == 0:
-            kwargs["background"] = None
-    _orig_style_init(self, *args, **kwargs)
-
-style.Style.__init__ = _patched_style_init
+from wave.tui.textual_patches import (
+    _orig_blank_init,
+    _patched_blank_init,
+    _orig_style_init,
+    _patched_style_init,
+    apply_textual_patches,
+)
 # ---------------------------------------------------------
 
 
