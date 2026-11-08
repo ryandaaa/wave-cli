@@ -80,7 +80,6 @@ Anda bisa langsung mengunduh binary portabel yang sudah terkompilasi dari halama
 
 * **Linux x86_64:** `wave-linux-x86_64.tar.gz`
 * **macOS Apple Silicon (M1/M2/M3/M4):** `wave-macos-arm64.tar.gz`
-* **macOS Intel:** `wave-macos-x86_64.tar.gz`
 * **Windows x86_64:** `wave-windows-x86_64.zip`
 
 Cukup ekstrak file tersebut dan pindahkan ke direktori PATH Anda:

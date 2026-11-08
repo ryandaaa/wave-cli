@@ -28,10 +28,6 @@ jobs:
             target: macos-arm64
             archive-pattern: "dist/wave-macos-arm64.*"
 
-          - os: macos-13
-            target: macos-x86_64
-            archive-pattern: "dist/wave-macos-x86_64.*"
-
           - os: windows-latest
             target: windows-x86_64
             archive-pattern: "dist/wave-windows-x86_64.*"
