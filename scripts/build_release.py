@@ -53,7 +53,9 @@ def main():
 
     # 2. Determine separator and PyInstaller arguments
     sep = ";" if sys.platform == "win32" else ":"
-    tcss_path = f"wave.tcss{sep}."
+    tcss_src = os.path.join("wave", "tui", "styles", "wave.tcss")
+    tcss_dst = os.path.join("wave", "tui", "styles")
+    tcss_path = f"{tcss_src}{sep}{tcss_dst}"
 
     cmd = [
         sys.executable, "-m", "PyInstaller",

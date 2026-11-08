@@ -32,11 +32,11 @@ dependencies = [
 ]
 
 [project.scripts]
-wave = "main:main"
-wave-cli = "main:main"
+wave = "wave.cli:main"
+wave-cli = "wave.cli:main"
 
-[tool.setuptools]
-py-modules = ["audio_cache", "database", "main", "player", "search", "tui"]
+[tool.setuptools.packages.find]
+include = ["wave*"]
 
 [tool.setuptools.package-data]
-"*" = ["wave.tcss"]
+"wave.tui" = ["styles/*.tcss"]

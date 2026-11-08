@@ -57,6 +57,36 @@ The following bugs were observed during baseline survey (preserved per Rule R1 -
 5. **v1 database migration without `created_at`**: `_migrate_to_v2` in `database.py` executes SQL querying `COALESCE(created_at, CURRENT_TIMESTAMP)` which fails if the legacy table schema did not include `created_at`.
 6. **SQLite concurrent write locks**: Concurrency stress tests experience locking errors under simultaneous multi-threaded writes.
 7. **`search_and_populate` not defined on `WaveApp`**: In `on_mount`, when `initial_query` is provided, `self.search_and_populate(self.initial_query)` is called, but no such method was implemented in monolithic `tui.py`.
+8. **Standard library `wave.py` naming collision**: Package name `wave` shares the name of Python's built-in standard library module `/usr/lib/python3.x/wave.py`. Within the repo or when packaged into standalone binary (`dist/wave`), the local package takes precedence. In environments where the package is installed to `site-packages` without `PYTHONPATH`, Python standard library resolves before `site-packages`. Exporting `PYTHONPATH` resolves console scripts.
+
+---
+
+## Final Test Suite Verification
+
+- **Total tests collected**: 132
+- **Passed**: 112 (100% baseline parity)
+- **Failed**: 20 (identical pre-existing failures)
+- **Regressions**: 0
+- **Compile check (`python -m compileall -q wave`)**: 0 errors
+- **Headless Textual Pilot test**: `mounted OK`
+- **Smoke test (`python main.py --version`)**: `wave-cli v0.2.0`
+
+## Largest Remaining Files & Line Counts
+
+All 44 `.py` files in `wave/` are strictly under the 250-line limit:
+
+| File | Lines |
+|---|---|
+| `wave/tui/app.py` | 230 |
+| `wave/db/playlist_tracks.py` | 218 |
+| `wave/player/ipc.py` | 207 |
+| `wave/tui/mixins/navigation.py` | 183 |
+| `wave/db/migrations.py` | 177 |
+| `wave/tui/mixins/playback.py` | 170 |
+| `wave/db/queue.py` | 158 |
+| `wave/tui/mixins/tracklist.py` | 155 |
+| `wave/db/liked.py` | 150 |
+| `wave/db/schema.py` | 148 |
 
 ---
 
@@ -142,10 +172,89 @@ The following 21 functions in the baseline codebase exceed 40 lines. Per Ground 
 
 ## Final tree
 
-*To be populated upon completion of the refactor (`tree wave`).*
+```
+wave/
+├── __init__.py
+├── __main__.py
+├── cli.py
+├── paths.py
+├── cache/
+│   ├── __init__.py
+│   └── audio_cache.py
+├── db/
+│   ├── __init__.py
+│   ├── connection.py
+│   ├── history.py
+│   ├── liked.py
+│   ├── migrations.py
+│   ├── playlist_tracks.py
+│   ├── playlists.py
+│   ├── queue.py
+│   ├── schema.py
+│   └── state.py
+├── player/
+│   ├── __init__.py
+│   ├── ipc.py
+│   ├── modes.py
+│   ├── playback.py
+│   ├── queue.py
+│   └── status.py
+├── tui/
+│   ├── __init__.py
+│   ├── app.py
+│   ├── textual_patches.py
+│   ├── mixins/
+│   │   ├── __init__.py
+│   │   ├── buttons.py
+│   │   ├── caching.py
+│   │   ├── likes.py
+│   │   ├── modes.py
+│   │   ├── navigation.py
+│   │   ├── playback.py
+│   │   ├── playlists.py
+│   │   ├── queue_ops.py
+│   │   ├── search.py
+│   │   ├── sidebar.py
+│   │   ├── ticker.py
+│   │   └── tracklist.py
+│   ├── modals/
+│   │   ├── __init__.py
+│   │   ├── confirm.py
+│   │   ├── import_playlist.py
+│   │   ├── new_playlist.py
+│   │   ├── playlist_select.py
+│   │   └── rename_playlist.py
+│   ├── styles/
+│   │   └── wave.tcss
+│   └── widgets/
+│       ├── __init__.py
+│       └── track_row.py
+├── util/
+│   ├── __init__.py
+│   └── format.py
+└── youtube/
+    ├── __init__.py
+    ├── binary.py
+    ├── playlist.py
+    ├── radio.py
+    └── search.py
+```
 
 ---
 
 ## build_binary.sh diff
 
-*To be populated if changes are required to `build_binary.sh`.*
+`build_binary.sh` is an environment wrapper that executes `scripts/build_release.py`. It contains no references to old module paths or `.tcss` locations and was left unmodified per Ground Rule R4.
+
+The PyInstaller bundle data path was updated in `scripts/build_release.py`:
+```diff
+--- a/scripts/build_release.py
++++ b/scripts/build_release.py
+@@ -55,3 +55,5 @@
+     # 2. Determine separator and PyInstaller arguments
+     sep = ";" if sys.platform == "win32" else ":"
+-    tcss_path = f"wave.tcss{sep}."
++    tcss_src = os.path.join("wave", "tui", "styles", "wave.tcss")
++    tcss_dst = os.path.join("wave", "tui", "styles")
++    tcss_path = f"{tcss_src}{sep}{tcss_dst}"
+```

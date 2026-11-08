@@ -343,6 +343,22 @@ Aplikasi mengikuti spesifikasi **XDG Base Directory**:
 
 <hr />
 
+## Struktur Project
+
+```
+wave/
+├── cli.py             # CLI entrypoint, argument parsing, dan bootstrap aplikasi
+├── paths.py           # Sentralisasi path file sistem (cache, db, mpv IPC socket)
+├── db/                # Layer database SQLite WAL (koleksi, riwayat, antrean, state)
+├── player/            # Controller playback mpv engine via UNIX domain socket JSON IPC
+├── youtube/           # Integrasi yt-dlp (pencarian, playlist, radio mix)
+├── cache/             # Manajemen offline audio cache (unduh, ukuran, rotasi)
+├── util/              # Utilitas format durasi, ASCII progress bar, volume bar
+└── tui/               # Textual TUI (app core, mixins, modal dialog, custom widgets, tcss)
+```
+
+<hr />
+
 ## Menghapus Instalasi (Uninstall)
 
 <details>
