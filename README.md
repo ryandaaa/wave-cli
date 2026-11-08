@@ -1,117 +1,154 @@
+<div align="center">
+
 # WAVE-CLI
 
-```text
-__      __  _____  ___      ___  _______         ______   ___       __  
-\ \    / / /  _  \ \  \    /  / |   ____|       /  ____| |   |     |  | 
- \ \  / / /  /_\  \ \  \  /  /  |  |___   ____ |  |      |   |     |  | 
-  \ \/ / /   ___   \ \  \/  /   |   ___| |____||  |      |   |     |  | 
-   \  / /   /   \   \ \    /    |  |___        |  `----. |   `----.|  | 
-    \/ /___/     \___\ \__/     |_______|       \______| |________||__| 
-```
+<p><strong>Minimalist, Zero-Flicker, Spotify-Style Terminal Music Player for Linux</strong></p>
 
-> Minimalist, Zero-Flicker, Spotify-Style Terminal Music Player for Linux.
+<p>
+  <a href="https://github.com/ryandaaa/wave-cli/releases"><img src="https://img.shields.io/github/v/release/ryandaaa/wave-cli?style=flat-square&color=89b4fa&label=Release" alt="Release Version"></a>
+  <a href="https://github.com/ryandaaa/wave-cli/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ryandaaa/wave-cli/ci.yml?branch=main&style=flat-square&color=a6e3a1&label=CI" alt="CI Status"></a>
+  <a href="https://github.com/ryandaaa/wave-cli/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ryandaaa/wave-cli?style=flat-square&color=fab387&label=License" alt="License"></a>
+  <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-cba6f7?style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-f38ba8?style=flat-square" alt="Python Version">
+  <img src="https://img.shields.io/badge/UI-Textual%20TUI-94e2d5?style=flat-square" alt="Textual">
+</p>
 
-Built with Python (**Textual** & **Rich**), **mpv** UNIX domain socket JSON IPC, and **yt-dlp**.
+<p>Ditenagai oleh <strong>Textual</strong> &amp; <strong>Rich</strong>, <strong>mpv</strong> UNIX Domain Socket JSON IPC, dan <strong>yt-dlp</strong>.</p>
 
----
-
-## Fitur Utama
-
-* **Spotify-Style Two-Pane Layout:**
-  * Sidebar navigasi kiri (`Search`, `Queue`, `Liked`, `History`, `Radio`, dan daftar `Playlists`).
-  * Panel utama daftar lagu dengan metadata lengkap (nomor, judul, artis, cache status, durasi).
-  * Player bar persisten di bagian bawah dengan scrubber ASCII dan meter volume.
-* **100% Zero-Flicker Architecture:**
-  * Memanfaatkan differential rendering Textual.
-  * Update status playback dilakukan secara atomik setiap 250ms tanpa me-redraw tabel lagu.
-* **Pure Clean ASCII Aesthetic:**
-  * Desain terminal modern dan tajam tanpa emoji, cocok untuk Kitty, Alacritty, WezTerm, Foot, maupun tmux.
-  * Transparansi latar belakang penuh (100% transparent glass mode).
-* **Offline Audio Caching:**
-  * Lagu favorit dan playlist dapat diunduh otomatis dalam format Opus (`~/.cache/wave-cli/audio/`).
-  * Indikator status `[v]` warna hijau terang menandakan lagu siap diputar offline instan tanpa kuota internet.
-  * Tombol `[ Download Semua ]` untuk batch caching satu playlist atau seluruh lagu Liked.
-* **Import Playlist YouTube Instan:**
-  * Cukup paste tautan playlist YouTube ke kotak pencarian atau tekan `I` untuk membuka modal import.
-  * Pengguna dapat menentukan nama kustom sebelum playlist disimpan ke database lokal.
-* **Smart Repeat & Shuffle:**
-  * Mode Repeat: `OFF` -> `ALL` (loop playlist/queue) -> `ONE` (loop single track).
-  * Mode Shuffle: Acak urutan pemutaran lagu saat beralih trek berikutnya.
-* **Continuous Radio Mix (Autoplay):**
-  * Auto-fetch radio mix YouTube saat antrean utama habis, menjaga pemutaran musik tetap berjalan tanpa henti.
-* **Penyimpanan Lokal Andal (SQLite WAL):**
-  * Database tersimpan aman di `~/.local/share/wave-cli/library.db` dengan proteksi foreign key cascade dan migrasi otomatis.
-
----
-
-## Kebutuhan Sistem
-
-* **Sistem Operasi:** Linux, macOS (Apple Silicon / Intel), atau Windows
-* **mpv:** Audio backend dan JSON IPC engine
-* **Python 3.10+:** (Hanya jika menjalankan via source code / pip; tidak diperlukan jika menggunakan Standalone Binary)
-* **yt-dlp:** Ekstraksi audio streaming (diinstall otomatis oleh installer)
-
-Instalasi `mpv`:
-```bash
-# Ubuntu / Debian / Linux Mint
-sudo apt update && sudo apt install mpv
-
-# Arch Linux / Manjaro
-sudo pacman -S mpv
-
-# Fedora
-sudo dnf install mpv
-
-# macOS (Homebrew)
-brew install mpv
-
-# Windows (Chocolatey atau Winget)
-choco install mpv
-# atau: winget install mpv.net
-```
-
----
-
-## Panduan Instalasi
-
-### Metode 1: Satu Baris Auto-Install (Sangat Direkomendasikan)
-
-Cukup salin dan jalankan perintah satu baris berikut di terminal Linux atau macOS Anda:
+<br />
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ryandaaa/wave-cli/main/install.sh | bash
 ```
 
-Skrip ini akan secara otomatis:
-1. Mendeteksi OS & arsitektur mesin (`Linux x86_64` atau `macOS arm64`).
-2. Mengunduh dan memasang executable mandiri `wave` ke `~/.local/bin/wave`.
-3. Memeriksa `yt-dlp` dan mengunduh binary resminya secara otomatis jika belum ada.
-4. Memeriksa `mpv` dan memberikan panduan perintah instalasi satu baris sesuai distro Anda jika belum terpasang.
+</div>
 
-*(Tanpa perlu menginstall Python atau melakukan kompilasi manual)*.
+<hr />
 
----
+## Ikhtisar Fitur
 
-### Metode 2: Download Manual dari GitHub Releases
+<table>
+  <tr>
+    <td width="50%">
+      <h4>Spotify-Style Two-Pane Layout</h4>
+      Sidebar navigasi di sisi kiri (<code>Search</code>, <code>Queue</code>, <code>Liked</code>, <code>History</code>, <code>Radio</code>, <code>Playlists</code>) serta tabel track lagu interaktif di panel utama.
+    </td>
+    <td width="50%">
+      <h4>100% Zero-Flicker Differential Rendering</h4>
+      Memanfaatkan sistem diffing Textual. Status playback diperbarui secara atomik setiap 250ms tanpa me-redraw tabel lagu atau menyebabkan layar berkedip.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h4>Offline Audio Caching (Opus Native)</h4>
+      Mengunduh audio lagu favorit dan playlist langsung ke disk lokal (<code>~/.cache/wave-cli/audio/</code>). Lagu yang sudah ter-cache ditandai indikator <code>[v]</code> hijau dan diputar instan tanpa memakan kuota.
+    </td>
+    <td width="50%">
+      <h4>Import Playlist YouTube Instan</h4>
+      Cukup paste tautan playlist YouTube ke kotak pencarian atau tekan <kbd>I</kbd>. Anda dapat menentukan nama kustom sebelum playlist disimpan ke database lokal.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h4>Smart Repeat &amp; Shuffle</h4>
+      Mendukung tiga mode repeat (<code>OFF</code> &rarr; <code>ALL</code> &rarr; <code>ONE</code>) serta pengacakan antrean (<code>Shuffle</code>) yang tersimpan permanen di database.
+    </td>
+    <td width="50%">
+      <h4>Endless Radio Mix (Autoplay)</h4>
+      Ketika antrean utama pengguna selesai diputar, sistem otomatis mengambil rekomendasi Radio Mix terkait sehingga musik tidak pernah berhenti.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h4>Transparent Glass Mode</h4>
+      Mendukung 100% latar belakang transparan murni tanpa lapisan warna hitam built-in terminal (ideal untuk Kitty, WezTerm, Alacritty, dan Foot).
+    </td>
+    <td width="50%">
+      <h4>Penyimpanan Database Andal (SQLite WAL)</h4>
+      Riwayat pemutaran, antrean persisten, dan playlist disimpan rapi di <code>~/.local/share/wave-cli/library.db</code> dengan proteksi transaksi WAL mode.
+    </td>
+  </tr>
+</table>
 
-Anda bisa langsung mengunduh binary portabel yang sudah terkompilasi dari halaman **GitHub Releases**:
+<hr />
+
+## Kebutuhan Sistem
+
+Satu-satunya dependensi eksternal yang dibutuhkan di sistem Anda adalah **`mpv`**. Komponen lainnya (termasuk `yt-dlp`) akan diurus secara otomatis oleh installer.
+
+<table>
+  <thead>
+    <tr>
+      <th align="left">Sistem Operasi / Distro</th>
+      <th align="left">Perintah Instalasi mpv</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Ubuntu / Debian / Linux Mint / Pop!_OS</strong></td>
+      <td><code>sudo apt update &amp;&amp; sudo apt install -y mpv</code></td>
+    </tr>
+    <tr>
+      <td><strong>Arch Linux / Manjaro / EndeavourOS</strong></td>
+      <td><code>sudo pacman -S mpv</code></td>
+    </tr>
+    <tr>
+      <td><strong>Fedora / RHEL / CentOS</strong></td>
+      <td><code>sudo dnf install -y mpv</code></td>
+    </tr>
+    <tr>
+      <td><strong>openSUSE</strong></td>
+      <td><code>sudo zypper install -y mpv</code></td>
+    </tr>
+    <tr>
+      <td><strong>macOS (Homebrew)</strong></td>
+      <td><code>brew install mpv</code></td>
+    </tr>
+    <tr>
+      <td><strong>Windows (Winget / Chocolatey)</strong></td>
+      <td><code>winget install mpv.net</code> <em>atau</em> <code>choco install mpv</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+## Panduan Instalasi
+
+### Metode 1: Satu Baris Auto-Install (Direkomendasikan)
+
+Salin dan jalankan perintah berikut di terminal Linux atau macOS Anda:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ryandaaa/wave-cli/main/install.sh | bash
+```
+
+> [!NOTE]
+> Skrip ini secara otomatis mendeteksi arsitektur sistem Anda (`Linux x86_64` atau `macOS arm64`), mengunduh binary standalone yang siap pakai ke `~/.local/bin/wave`, dan otomatis memasang `yt-dlp` jika belum tersedia. Tidak membutuhkan Python atau hak akses root/sudo.
+
+<details>
+<summary><strong>Metode 2: Download Manual dari GitHub Releases</strong></summary>
+<br />
+
+Anda dapat langsung mengambil binary hasil kompilasi resmi dari halaman <a href="https://github.com/ryandaaa/wave-cli/releases/latest"><strong>GitHub Releases</strong></a>:
 
 * **Linux x86_64:** `wave-linux-x86_64.tar.gz`
-* **macOS Apple Silicon (M1/M2/M3/M4):** `wave-macos-arm64.tar.gz`
+* **macOS Apple Silicon:** `wave-macos-arm64.tar.gz`
 * **Windows x86_64:** `wave-windows-x86_64.zip`
 
-Cukup ekstrak file tersebut dan pindahkan ke direktori PATH Anda:
+Ekstrak dan pindahkan binary ke direktori PATH Anda:
 ```bash
 # Contoh untuk Linux / macOS:
 tar -xvf wave-linux-x86_64.tar.gz
 sudo mv wave /usr/local/bin/wave
 ```
+</details>
 
----
+<details>
+<summary><strong>Metode 3: Instalasi dari Source Code (Git Clone &amp; Dev Mode)</strong></summary>
+<br />
 
-### Metode 3: Instalasi dari Source Code (Git Clone)
-
-Jika ingin menjalankan atau mengembangkan langsung dari source code:
+Jika Anda ingin memodifikasi atau mengembangkan `wave-cli` secara lokal:
 
 ```bash
 git clone https://github.com/ryandaaa/wave-cli.git
@@ -122,104 +159,210 @@ cd wave-cli
 Atau menggunakan `pipx` / `pip`:
 ```bash
 pipx install .
-# atau
+# atau:
 pip install .
 ```
+</details>
 
----
+<details>
+<summary><strong>Metode 4: Kompilasi Standalone Binary Sendiri (PyInstaller)</strong></summary>
+<br />
 
-### Metode 3: Standalone Single-File Binary (PyInstaller)
-
-Jika Anda ingin menghasilkan satu binary mandiri tanpa perlu dependensi Python di sistem target:
+Jika Anda ingin membuat binary tunggal mandiri dari source code:
 
 ```bash
 ./build_binary.sh
 ```
+Binary hasil kompilasi akan berada di folder `dist/wave`.
+</details>
 
-Hasil kompilasi executable akan tersedia di `dist/wave`. Pindahkan binary tersebut ke direktori PATH sistem Anda:
-
-```bash
-cp dist/wave ~/.local/bin/wave
-```
-
----
+<hr />
 
 ## Cara Menjalankan
 
-Cukup ketik salah satu perintah berikut dari mana saja di terminal:
+Setelah terpasang, cukup ketik perintah `wave` dari mana saja di terminal:
 
 ```bash
-# Buka aplikasi
+# Membuka antarmuka TUI wave-cli
 wave
 
-# Buka dan langsung cari lagu atau paste link playlist:
+# Membuka dan langsung mencari lagu
 wave "coldplay yellow"
+
+# Membuka dan langsung mengimpor playlist YouTube
 wave "https://www.youtube.com/playlist?list=PL..."
 
-# Bantuan dan versi:
+# Bantuan dan informasi versi
 wave --help
 wave --version
 ```
 
----
+<hr />
 
 ## Pintasan Navigasi Keyboard
 
-| Tombol | Aksi |
-| :--- | :--- |
-| `/` | Fokus ke kolom pencarian / input URL |
-| `Enter` | Putar lagu yang dipilih / submit form |
-| `Space` | Toggle Play / Pause |
-| `p` / `n` | Putar lagu Sebelumnya (**Prev**) / Berikutnya (**Next**) |
-| `h` / `l` | Mundur / Maju 5 detik (**Seek -/+ 5s**) |
-| `+` / `-` | Naikkan / Turunkan volume audio |
-| `f` / `F` | Toggle lagu Favorit (**Liked**) pada baris terpilih atau Now Playing |
-| `s` | Toggle **Shuffle Mode** (ON / OFF) |
-| `t` | Siklus **Repeat Mode** (OFF -> ALL -> ONE) |
-| `r` | Toggle **Autoplay Radio** (ON / OFF) |
-| `a` | Tambahkan lagu yang dipilih ke antrean (**Queue**) |
-| `m` | Buka menu tambahkan lagu ke **Playlist** |
-| `P` | Buat **Playlist Baru** |
-| `I` | Buka modal **Import Playlist YouTube** |
-| `d` | Hapus lagu atau playlist terpilih (**Delete**) |
-| `C` | Bersihkan antrean (**Clear Queue**) |
-| `1` | Navigasi ke tab **Search** |
-| `2` | Navigasi ke tab **Queue** |
-| `3` | Navigasi ke tab **Liked Songs** |
-| `4` | Navigasi ke tab **History** |
-| `5` | Navigasi ke tab **Radio** |
-| `Esc` | Lepas fokus dari input teks kembali ke navigasi tabel |
-| `q` | Tutup aplikasi dan matikan proses audio secara bersih |
+<table>
+  <thead>
+    <tr>
+      <th align="center">Tombol</th>
+      <th align="left">Aksi</th>
+      <th align="left">Kategori</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center"><kbd>/</kbd></td>
+      <td>Fokus ke kolom pencarian atau input tautan YouTube</td>
+      <td>Pencarian</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>Esc</kbd></td>
+      <td>Lepas fokus dari input teks kembali ke navigasi tabel lagu</td>
+      <td>Pencarian</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>Enter</kbd></td>
+      <td>Putar lagu yang dipilih atau submit pencarian/formulir</td>
+      <td>Playback</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>Space</kbd></td>
+      <td>Toggle Play / Pause</td>
+      <td>Playback</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>p</kbd> / <kbd>n</kbd></td>
+      <td>Putar lagu Sebelumnya (<strong>Previous</strong>) / Berikutnya (<strong>Next</strong>)</td>
+      <td>Playback</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>h</kbd> / <kbd>l</kbd></td>
+      <td>Mundur / Maju 5 detik (<strong>Seek -/+ 5s</strong>)</td>
+      <td>Playback</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>+</kbd> / <kbd>-</kbd></td>
+      <td>Naikkan / Turunkan volume audio</td>
+      <td>Playback</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>s</kbd></td>
+      <td>Toggle <strong>Shuffle Mode</strong> (Acak urutan lagu)</td>
+      <td>Mode</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>t</kbd></td>
+      <td>Siklus <strong>Repeat Mode</strong> (<code>OFF</code> &rarr; <code>ALL</code> &rarr; <code>ONE</code>)</td>
+      <td>Mode</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>r</kbd></td>
+      <td>Toggle <strong>Autoplay Radio</strong> (Rekomendasi otomatis saat antrean habis)</td>
+      <td>Mode</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>f</kbd> / <kbd>F</kbd></td>
+      <td>Simpan / Hapus lagu dari favorit (<strong>Liked Songs</strong>)</td>
+      <td>Koleksi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>a</kbd></td>
+      <td>Tambahkan lagu yang dipilih ke antrean pemutaran (<strong>Queue</strong>)</td>
+      <td>Koleksi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>m</kbd></td>
+      <td>Buka menu pop-up untuk menambahkan lagu ke <strong>Playlist</strong></td>
+      <td>Koleksi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>P</kbd></td>
+      <td>Buka modal dialog untuk membuat <strong>Playlist Baru</strong></td>
+      <td>Koleksi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>I</kbd></td>
+      <td>Buka modal dialog untuk <strong>Import Playlist YouTube</strong></td>
+      <td>Koleksi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>d</kbd> / <kbd>Delete</kbd></td>
+      <td>Hapus lagu dari Playlist/Queue aktif, atau hapus playlist terpilih</td>
+      <td>Koleksi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>C</kbd></td>
+      <td>Bersihkan seluruh daftar antrean (<strong>Clear Queue</strong>)</td>
+      <td>Koleksi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>1</kbd> s/d <kbd>5</kbd></td>
+      <td>Pindah cepat tab navigasi (<code>1: Search</code>, <code>2: Queue</code>, <code>3: Liked</code>, <code>4: History</code>, <code>5: Radio</code>)</td>
+      <td>Navigasi</td>
+    </tr>
+    <tr>
+      <td align="center"><kbd>q</kbd></td>
+      <td>Keluar dari aplikasi dan matikan engine pemutar audio secara bersih</td>
+      <td>Sistem</td>
+    </tr>
+  </tbody>
+</table>
 
----
+<hr />
 
-## Lokasi Data & Cache (XDG Base Directory)
+## Lokasi Data & Direktori Cache
 
-* **Database (Riwayat, Liked, Playlist):**
-  `~/.local/share/wave-cli/library.db`
-* **Audio Cache (Opus Native):**
-  `~/.cache/wave-cli/audio/`
-* **MPV Socket:**
-  `/tmp/wave-cli-mpv.sock`
+Aplikasi mengikuti spesifikasi **XDG Base Directory**:
 
----
+<table>
+  <thead>
+    <tr>
+      <th align="left">Komponen</th>
+      <th align="left">Lokasi File di Sistem</th>
+      <th align="left">Keterangan</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Database Perpustakaan</strong></td>
+      <td><code>~/.local/share/wave-cli/library.db</code></td>
+      <td>Menyimpan riwayat pemutaran, lagu favorit (Liked), dan daftar playlist (SQLite WAL).</td>
+    </tr>
+    <tr>
+      <td><strong>Cache Audio Offline</strong></td>
+      <td><code>~/.cache/wave-cli/audio/&lt;video_id&gt;.opus</code></td>
+      <td>File audio mentah hasil unduhan untuk pemutaran tanpa kuota internet.</td>
+    </tr>
+    <tr>
+      <td><strong>UNIX IPC Socket</strong></td>
+      <td><code>/tmp/wave-mpv-&lt;pid&gt;.sock</code></td>
+      <td>Koneksi komunikasi dua arah antara antarmuka Textual dan engine mpv.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
 
 ## Menghapus Instalasi (Uninstall)
 
-Untuk menghapus instalasi `wave-cli` beserta binary command:
+<details>
+<summary><strong>Petunjuk Menghapus Instalasi</strong></summary>
+<br />
 
+Jika Anda menggunakan skrip auto-installer:
 ```bash
 ./install.sh --uninstall
 ```
 
-Atau hapus secara manual:
+Atau hapus secara manual dari sistem Anda:
 ```bash
-rm -rf ~/.local/share/wave-cli
 rm -f ~/.local/bin/wave ~/.local/bin/wave-cli
+rm -rf ~/.local/share/wave-cli
 ```
+</details>
 
----
+<hr />
 
-## Lisensi
-
-Didistribusikan di bawah lisensi MIT.
+<div align="center">
+  <p>Didistribusikan di bawah <a href="LICENSE"><strong>MIT License</strong></a>.</p>
+</div>
