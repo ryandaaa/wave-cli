@@ -24,7 +24,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from database import Database
+from wave.db import Database
 
 
 # ============================================================================

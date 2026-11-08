@@ -25,9 +25,10 @@ import time
 from typing import Any, Dict, List
 import pytest
 
-from database import Database
-from player import Player
-from search import format_duration, is_playlist_url
+from wave.db import Database
+from wave.player import Player
+from wave.util.format import format_duration
+from wave.youtube import is_playlist_url
 
 pytestmark = pytest.mark.tier2
 

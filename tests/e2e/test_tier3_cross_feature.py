@@ -16,8 +16,8 @@ import time
 from typing import Any, Dict, List
 import pytest
 
-from database import Database
-from player import Player
+from wave.db import Database
+from wave.player import Player
 
 pytestmark = pytest.mark.tier3
 

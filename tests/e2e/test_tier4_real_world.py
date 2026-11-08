@@ -18,10 +18,10 @@ import time
 from typing import Any, Dict, List
 import pytest
 
-from database import Database
-from player import Player
-from search import search_youtube
-from tui import WaveApp
+from wave.db import Database
+from wave.player import Player
+from wave.youtube import search_youtube
+from wave.tui import WaveApp
 
 pytestmark = pytest.mark.tier4
 

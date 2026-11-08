@@ -3,9 +3,9 @@ Unit tests for Fav Now Playing, Repeat Modes (ONE, ALL), and Shuffle.
 """
 
 import pytest
-from player import Player
-from database import Database
-from tui import WaveApp
+from wave.player import Player
+from wave.db import Database
+from wave.tui import WaveApp
 
 
 def test_toggle_repeat_cycle():

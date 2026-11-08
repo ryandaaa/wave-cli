@@ -9,10 +9,7 @@ import os
 import shutil
 from typing import Dict, Optional, Set
 
-try:
-    from wave.youtube.binary import find_yt_dlp
-except ImportError:
-    from search import find_yt_dlp
+from wave.youtube.binary import find_yt_dlp
 
 CACHE_DIR = os.path.expanduser("~/.cache/wave-cli/audio")
 _active_downloads: Set[str] = set()

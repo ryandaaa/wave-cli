@@ -19,10 +19,11 @@ import sys
 from typing import Any, Dict, List
 import pytest
 
-from database import Database
-from player import Player
-from search import format_duration, is_playlist_url, search_youtube
-from tui import make_progress_bar, make_vol_bar, WaveApp
+from wave.db import Database
+from wave.player import Player
+from wave.util.format import format_duration, make_progress_bar, make_vol_bar
+from wave.youtube import is_playlist_url, search_youtube
+from wave.tui import WaveApp
 
 pytestmark = pytest.mark.tier1
 
@@ -505,7 +506,7 @@ def test_volume_bar_ascii_rendering():
 
 def test_help_modal_and_toast_ascii():
     """Verify help modal and toast notification mapping (F20, F30)."""
-    import tui
+    import wave.tui as tui
     # Check for HelpModal or ? keybinding in WaveApp
     has_help_binding = any(b.key == "question_mark" or b.key == "?" for b in WaveApp.BINDINGS)
     if not has_help_binding and not hasattr(tui, "HelpModal"):
@@ -540,7 +541,7 @@ def test_cli_version_flag():
 
 def test_cli_positional_search_query():
     """Verify CLI accepts positional search query argument (F21)."""
-    import main
+    from wave import cli as main
     assert hasattr(main, "parse_args") or hasattr(main, "main")
 
 

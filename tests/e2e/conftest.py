@@ -8,8 +8,8 @@ import pathlib
 from typing import Any, Dict, List, Optional, Set
 import pytest
 
-from database import Database
-from player import Player
+from wave.db import Database
+from wave.player import Player
 
 
 @pytest.fixture

@@ -3,9 +3,10 @@ Unit tests for direct YouTube Playlist Import and Interactive Confirmation.
 """
 
 import pytest
-from search import is_playlist_url
-from tui import ImportPlaylistModal, WaveApp
-from database import Database
+from wave.youtube import is_playlist_url
+from wave.tui import WaveApp
+from wave.tui.modals import ImportPlaylistModal
+from wave.db import Database
 
 
 def test_is_playlist_url_detection():
@@ -34,7 +35,7 @@ async def test_import_playlist_custom_name(tmp_path, monkeypatch):
     async def fake_fetch(url, limit=150):
         return "Original YouTube Title", mock_tracks
 
-    monkeypatch.setattr("tui.fetch_youtube_playlist", fake_fetch)
+    monkeypatch.setattr("wave.tui.mixins.search.fetch_youtube_playlist", fake_fetch)
 
     app = WaveApp()
     app.db = db
@@ -71,7 +72,7 @@ async def test_import_playlist_fallback_name(tmp_path, monkeypatch):
     async def fake_fetch(url, limit=150):
         return "YouTube Best Hits", mock_tracks
 
-    monkeypatch.setattr("tui.fetch_youtube_playlist", fake_fetch)
+    monkeypatch.setattr("wave.tui.mixins.search.fetch_youtube_playlist", fake_fetch)
 
     app = WaveApp()
     app.db = db

@@ -5,7 +5,7 @@ Unit tests for Audio Caching Engine & Offline Playback Support.
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-from audio_cache import (
+from wave.cache import (
     CACHE_DIR,
     get_cache_dir,
     get_cached_audio_path,
@@ -15,13 +15,13 @@ from audio_cache import (
     get_cache_size_str,
     clear_audio_cache,
 )
-from player import Player
+from wave.player import Player
 
 
 @pytest.fixture
 def temp_cache_dir(tmp_path, monkeypatch):
     test_cache = tmp_path / "wave_test_cache"
-    monkeypatch.setattr("audio_cache.CACHE_DIR", str(test_cache))
+    monkeypatch.setattr("wave.cache.audio_cache.CACHE_DIR", str(test_cache))
     return test_cache
 
 

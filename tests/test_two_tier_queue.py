@@ -3,8 +3,8 @@ Unit tests for Two-Tier Queue & Smart Radio Recommendations.
 """
 
 import pytest
-from player import Player
-from search import fetch_radio_mix
+from wave.player import Player
+from wave.youtube import fetch_radio_mix
 
 
 def test_play_next_enqueue_priority():
